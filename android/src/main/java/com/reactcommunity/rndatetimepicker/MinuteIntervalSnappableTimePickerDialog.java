@@ -21,6 +21,8 @@ class MinuteIntervalSnappableTimePickerDialog extends TimePickerDialog {
     private Handler handler = new Handler();
     private Runnable runnable;
     private Context mContext;
+    private int lastHour = -1;
+    private int lastMinute = -1;
 
     public MinuteIntervalSnappableTimePickerDialog(
             Context context,
@@ -36,6 +38,8 @@ class MinuteIntervalSnappableTimePickerDialog extends TimePickerDialog {
         mTimeSetListener = listener;
         mDisplay = display;
         mContext = context;
+        lastHour = hourOfDay;
+        lastMinute = minute;
     }
 
     public MinuteIntervalSnappableTimePickerDialog(
@@ -53,6 +57,8 @@ class MinuteIntervalSnappableTimePickerDialog extends TimePickerDialog {
         mTimeSetListener = listener;
         mDisplay = display;
         mContext = context;
+        lastHour = hourOfDay;
+        lastMinute = minute;
     }
 
     public static boolean isValidMinuteInterval(int interval) {
@@ -177,6 +183,16 @@ class MinuteIntervalSnappableTimePickerDialog extends TimePickerDialog {
             correctEnteredMinutes(view, hourOfDay, correctedMinutes);
         } else {
             super.onTimeChanged(view, hourOfDay, minute);
+
+            if (isSpinner() && mTimePickerInterval == 30) {
+                if (lastHour != hourOfDay && lastMinute != minute) {
+                    view.setHour(lastHour);
+                    lastMinute = minute;
+                } else {
+                    lastHour = hourOfDay;
+                    lastMinute = minute;
+                }
+            }
         }
     }
 
