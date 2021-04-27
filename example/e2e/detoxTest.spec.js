@@ -3,6 +3,8 @@ const {
   getDateText,
   elementById,
   elementByText,
+  getDateTimePickerIOS,
+  getDatePickerAndroid,
 } = require('./utils/matchers');
 const {
   userChangesMinuteValue,
@@ -10,7 +12,7 @@ const {
   userTapsCancelButtonAndroid,
   userTapsOkButtonAndroid,
 } = require('./utils/actions');
-const {isAndroid, isIOS} = require('./utils/utils');
+const {isAndroid, isIOS, wait} = require('./utils/utils');
 
 describe('Example', () => {
   beforeEach(async () => {
@@ -35,11 +37,9 @@ describe('Example', () => {
     await userOpensPicker({mode: 'date', display: 'default'});
 
     if (isIOS()) {
-      await expect(
-        element(by.type('UIPickerView').withAncestor(by.id('dateTimePicker'))),
-      ).toBeVisible();
+      await expect(getDateTimePickerIOS()).toBeVisible();
     } else {
-      await expect(element(by.type('android.widget.DatePicker'))).toBeVisible();
+      await expect(getDatePickerAndroid()).toBeVisible();
     }
   });
 
@@ -47,9 +47,7 @@ describe('Example', () => {
     await userOpensPicker({mode: 'date', display: 'default'});
 
     if (isIOS()) {
-      await expect(
-        element(by.type('UIPickerView').withAncestor(by.id('dateTimePicker'))),
-      ).toBeVisible();
+      await expect(getDateTimePickerIOS()).toBeVisible();
     } else {
       const testElement = element(
         by
@@ -70,9 +68,7 @@ describe('Example', () => {
     const dateText = getDateText();
 
     if (isIOS()) {
-      const testElement = element(
-        by.type('UIPickerView').withAncestor(by.id('dateTimePicker')),
-      );
+      const testElement = getDateTimePickerIOS();
       await testElement.setColumnToValue(0, 'November');
       await testElement.setColumnToValue(1, '3');
       await testElement.setColumnToValue(2, '1800');
@@ -96,9 +92,7 @@ describe('Example', () => {
     await userOpensPicker({mode: 'time', display: 'default'});
 
     if (isIOS()) {
-      await expect(
-        element(by.type('UIPickerView').withAncestor(by.id('dateTimePicker'))),
-      ).toBeVisible();
+      await expect(getDateTimePickerIOS()).toBeVisible();
     } else {
       await expect(element(by.type('android.widget.TimePicker'))).toBeVisible();
     }
@@ -108,9 +102,7 @@ describe('Example', () => {
     await userOpensPicker({mode: 'time', display: 'default'});
 
     if (isIOS()) {
-      await expect(
-        element(by.type('UIPickerView').withAncestor(by.id('dateTimePicker'))),
-      ).toBeVisible();
+      await expect(getDateTimePickerIOS()).toBeVisible();
     } else {
       await userChangesMinuteValue();
       await userTapsCancelButtonAndroid();
@@ -124,9 +116,7 @@ describe('Example', () => {
     const timeText = getTimeText();
 
     if (isIOS()) {
-      const testElement = element(
-        by.type('UIPickerView').withAncestor(by.id('dateTimePicker')),
-      );
+      const testElement = getDateTimePickerIOS();
       await testElement.setColumnToValue(0, '2');
       await testElement.setColumnToValue(1, '44');
       await testElement.setColumnToValue(2, 'PM');
@@ -140,6 +130,64 @@ describe('Example', () => {
     }
   });
 
+  async function userOpensPickerSetTimeZoneOffset({
+    mode,
+    display,
+    interval,
+    type,
+  }) {
+    await element(by.text(mode)).tap();
+    await element(by.text(display)).tap();
+    if (interval) {
+      await element(by.text(String(interval))).tap();
+    }
+    await element(by.id(type)).tap();
+  }
+
+  it('should update dateTimeText when date changes and set setTzOffsetInMinutes to 0', async () => {
+    await userOpensPickerSetTimeZoneOffset({
+      mode: 'date',
+      display: 'default',
+      type: 'setTzZero',
+    });
+    const dateText = getDateText();
+
+    if (isIOS()) {
+      const testElement = getDateTimePickerIOS();
+      await testElement.setColumnToValue(0, 'November');
+      await testElement.setColumnToValue(1, '3');
+      await testElement.setColumnToValue(2, '1800');
+
+      await expect(dateText).toHaveText('11/03/1800');
+    } else {
+      await userTapsOkButtonAndroid();
+      await expect(dateText).toHaveText('08/21/2020');
+    }
+  });
+
+  it('setTz should change time text when setTzOffsetInMinutes is 60 minutes', async () => {
+    await userOpensPickerSetTimeZoneOffset({
+      mode: 'time',
+      display: 'default',
+      type: 'setTz',
+    });
+    const timeText = getTimeText();
+
+    if (isIOS()) {
+      const testElement = getDateTimePickerIOS();
+      await testElement.setColumnToValue(0, '2');
+      await testElement.setColumnToValue(1, '44');
+      await testElement.setColumnToValue(2, 'PM');
+
+      await expect(timeText).toHaveText('13:44');
+    } else {
+      await userChangesMinuteValue();
+      await userTapsOkButtonAndroid();
+
+      await expect(timeText).toHaveText('22:30');
+    }
+  });
+
   it(':android: given we specify neutralButtonLabel, tapping the corresponding button sets date to the beginning of the unix time epoch', async () => {
     await elementById('neutralButtonLabelTextInput').typeText('clear');
     await userOpensPicker({mode: 'time', display: 'default'});
@@ -147,6 +195,15 @@ describe('Example', () => {
 
     const dateText = getDateText();
     await expect(dateText).toHaveText('01/01/1970');
+  });
+
+  it(':android: when component unmounts, dialog is dismissed', async () => {
+    await elementById('showAndDismissPickerButton').tap();
+    await wait(1000);
+    await expect(getDatePickerAndroid()).toExist();
+    await wait(6000);
+
+    await expect(getDatePickerAndroid()).toNotExist();
   });
 
   describe('given 5-minute interval', () => {
@@ -195,9 +252,7 @@ describe('Example', () => {
     it(':ios: picker should offer only options divisible by 5 (0, 5, 10,...)', async () => {
       await userOpensPicker({mode: 'time', display: 'spinner', interval: 5});
 
-      const testElement = element(
-        by.type('UIPickerView').withAncestor(by.id('dateTimePicker')),
-      );
+      const testElement = getDateTimePickerIOS();
       await testElement.setColumnToValue(0, '2');
       await testElement.setColumnToValue(2, 'PM');
       const timeText = getTimeText();
